@@ -1,0 +1,11 @@
+package: api
+
+generate:
+  models: true
+  embedded-spec: true
+
+output: api/api.gen.go
+
+output-options:
+  skip-prune: true
+  name-normalizer: ToCamelCaseWithInitialisms

@@ -1,0 +1,278 @@
+openapi: 3.0.1
+
+info:
+  title: Spare Parts Gateway API
+  description: |
+    A high-performance Go API aggregating legacy automotive suppliers data.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /spare-part/{id}:
+    get:
+      operationId: getSparePartById
+      summary: Retrieve a spare part by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Spare part identifier
+          schema:
+            type: string
+            pattern: "^sp-[a-zA-Z0-9-_]+$"
+            example: sp-001
+      responses:
+        "200":
+          description: Spare part retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SparePart"
+              examples:
+                brake_pads:
+                  summary: Spare part with several supplier offers
+                  value:
+                    id: sp-001
+                    reference: BRK-PAD-4521
+                    label: Front Brake Pads
+                    brand: Brembo
+                    category: BRAKING
+                    description: High performance front brake pads for urban and highway use
+                    offers:
+                      - id: off-001
+                        supplier: PartsPro
+                        price: 4599
+                        currency: EUR
+                        stockQuantity: 42
+                        deliveryDelay: PT48H
+                      - id: off-002
+                        supplier: AutoStock
+                        price: 3999
+                        currency: EUR
+                        stockQuantity: 8
+                        deliveryDelay: P3D
+
+        "404":
+          description: Spare part not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                not_found:
+                  value:
+                    title: Not Found
+                    status: 404
+                    detail: Spare part with id sp-999 not found
+
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    AmountCurrency:
+      type: string
+      description: Three-letter ISO currency code
+      enum:
+        - AUD
+        - BGN
+        - BRL
+        - CLP
+        - CZK
+        - DKK
+        - EUR
+        - GBP
+        - HRK
+        - HUF
+        - PEN
+        - PLN
+        - RON
+        - SEK
+        - USD
+      example: EUR
+      x-oapi-codegen-extra-tags:
+        validate: "required,oneof=AUD BGN BRL CLP CZK DKK EUR GBP HRK HUF PEN PLN RON SEK USD"
+
+    SparePartCategory:
+      type: string
+      enum:
+        - BODY
+        - ENGINE
+        - BRAKING
+        - SUSPENSION
+        - ELECTRONIC
+        - LIGHTING
+        - TYRES
+        - FLUIDS
+        - FILTERS
+        - TOOLS
+      example: BRAKING
+      x-oapi-codegen-extra-tags:
+        validate: "required,oneof=BODY ENGINE BRAKING SUSPENSION ELECTRONIC LIGHTING TYRES FLUIDS FILTERS TOOLS"
+
+    Offer:
+      type: object
+      required:
+        - id
+        - supplier
+        - price
+        - currency
+        - stockQuantity
+        - deliveryDelay
+      properties:
+        id:
+          type: string
+          description: Unique offer identifier
+          pattern: "^off-[a-zA-Z0-9-_]+$"
+          minLength: 5
+          maxLength: 64
+          example: off-001
+          x-oapi-codegen-extra-tags:
+            validate: "required,startswith=off-,min=5,max=64"
+
+        supplier:
+          type: string
+          description: Supplier name
+          minLength: 1
+          maxLength: 120
+          example: PartsPro
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=120"
+
+        price:
+          type: integer
+          description: Price in the smallest currency unit, for example cents
+          minimum: 0
+          maximum: 100000000
+          example: 4599
+          x-oapi-codegen-extra-tags:
+            validate: "gte=0,lte=100000000"
+
+        currency:
+          $ref: "#/components/schemas/AmountCurrency"
+
+        stockQuantity:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+          example: 42
+          x-oapi-codegen-extra-tags:
+            validate: "gte=0,lte=1000000"
+
+        deliveryDelay:
+          type: string
+          description: ISO 8601 duration string
+          pattern: '^P(?=\d|T\d)(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?$'
+          minLength: 2
+          maxLength: 32
+          example: PT48H
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=2,max=32,iso8601duration"
+
+    SparePart:
+      type: object
+      required:
+        - id
+        - reference
+        - label
+        - brand
+        - category
+        - description
+        - offers
+      properties:
+        id:
+          type: string
+          description: Unique spare part identifier
+          pattern: "^sp-[a-zA-Z0-9-_]+$"
+          minLength: 4
+          maxLength: 64
+          example: sp-001
+          x-oapi-codegen-extra-tags:
+            validate: "required,startswith=sp-,min=4,max=64"
+
+        reference:
+          type: string
+          description: Supplier or catalog reference
+          pattern: "^[A-Z0-9][A-Z0-9-_]*$"
+          minLength: 3
+          maxLength: 80
+          example: BRK-PAD-4521
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=3,max=80,uppercase_ref"
+
+        label:
+          type: string
+          description: Human-readable spare part label
+          minLength: 1
+          maxLength: 160
+          example: Front Brake Pads
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=160"
+
+        brand:
+          type: string
+          description: Spare part brand
+          minLength: 1
+          maxLength: 80
+          example: Brembo
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=80"
+
+        category:
+          $ref: "#/components/schemas/SparePartCategory"
+
+        description:
+          type: string
+          description: Spare part description
+          minLength: 1
+          maxLength: 1000
+          example: High performance front brake pads for urban and highway use
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=1000"
+
+        offers:
+          type: array
+          description: Supplier offers for this spare part
+          minItems: 0
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/Offer"
+          x-oapi-codegen-extra-tags:
+            validate: "required,max=100,dive"
+
+    ErrorResponse:
+      type: object
+      required:
+        - title
+        - status
+        - detail
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Not Found
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=120"
+
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+          example: 404
+          x-oapi-codegen-extra-tags:
+            validate: "gte=100,lte=599"
+
+        detail:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: Spare part with id sp-999 not found
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=1000"

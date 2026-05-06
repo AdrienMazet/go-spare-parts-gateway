@@ -1,0 +1,12 @@
+version: "2"
+
+linters:
+  enable:
+    - whitespace
+    - copyloopvar
+    - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
