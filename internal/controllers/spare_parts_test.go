@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/service"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/xerrors"
 	"github.com/golang/mock/gomock"
 )
 
@@ -72,7 +72,7 @@ func TestSparePartHandler(t *testing.T) {
 				}
 				mockService.EXPECT().Retrieve(tt.inputID).Return(validSparePart, nil)
 			} else {
-				mockService.EXPECT().Retrieve(tt.inputID).Return(nil, errors.New("spare part not found"))
+				mockService.EXPECT().Retrieve(tt.inputID).Return(nil, xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", tt.inputID))
 			}
 
 			handler := NewSparePartHandler(mockService)

@@ -1,9 +1,8 @@
 package repository
 
 import (
-	"fmt"
-
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/xerrors"
 )
 
 // SparePartsRepo provides necessary methods to store and retrieve spare parts
@@ -26,7 +25,7 @@ func (c sparePartsRepo) GetById(id string) (*api.SparePart, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("spare part with id %s not found", id)
+	return nil, xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", id)
 }
 
 // TODO : retrieve spare parts from external data sources
