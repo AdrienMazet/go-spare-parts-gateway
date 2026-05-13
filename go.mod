@@ -4,6 +4,7 @@ go 1.26.1
 
 require (
 	github.com/getkin/kin-openapi v0.137.0
+	github.com/golang/mock v1.6.0
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
 )
 

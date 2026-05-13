@@ -1,13 +1,16 @@
-package main
+package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/service"
+	"github.com/golang/mock/gomock"
 )
 
 func TestSparePartHandler(t *testing.T) {
@@ -31,7 +34,7 @@ func TestSparePartHandler(t *testing.T) {
 			expectedError: &api.ErrorResponse{
 				Title:  "Not Found",
 				Status: http.StatusNotFound,
-				Detail: "Spare part with id sp-999 not found",
+				Detail: "spare part with id sp-999 not found",
 			},
 		},
 	}
@@ -43,7 +46,37 @@ func TestSparePartHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/spare-part/"+tt.inputID, nil)
 			req.SetPathValue("id", tt.inputID)
 
-			sparePartHandler(w, req)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := service.NewMockSparePartsService(ctrl)
+
+			if tt.expectedID != "" {
+				validSparePart := &api.SparePart{
+					ID:          tt.inputID,
+					Reference:   "BRK-PAD-001",
+					Label:       "Front Brake Pads",
+					Brand:       "Brembo",
+					Category:    "BRAKING",
+					Description: "High performance front brake pads",
+					Offers: []api.Offer{
+						{
+							ID:            "off-001",
+							Supplier:      "PartsPro",
+							Price:         4599,
+							Currency:      "EUR",
+							StockQuantity: 42,
+							DeliveryDelay: "PT48H",
+						},
+					},
+				}
+				mockService.EXPECT().Retrieve(tt.inputID).Return(validSparePart, nil)
+			} else {
+				mockService.EXPECT().Retrieve(tt.inputID).Return(nil, errors.New("spare part not found"))
+			}
+
+			handler := NewSparePartHandler(mockService)
+			handler.GetSparePart(w, req)
 
 			res := w.Result()
 			defer func() {
