@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,6 +10,9 @@ import (
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/xerrors"
+	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandleError(t *testing.T) {
@@ -22,6 +26,13 @@ func TestHandleError(t *testing.T) {
 		{
 			name:           "entity not found",
 			err:            xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999"),
+			expectedStatus: http.StatusNotFound,
+			expectedTitle:  "Not Found",
+			expectedDetail: "spare part with id sp-999 not found",
+		},
+		{
+			name:           "wrapped entity not found",
+			err:            xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999").Wrap(errors.New("repository lookup failed")),
 			expectedStatus: http.StatusNotFound,
 			expectedTitle:  "Not Found",
 			expectedDetail: "spare part with id sp-999 not found",
@@ -52,31 +63,78 @@ func TestHandleError(t *testing.T) {
 
 			res := w.Result()
 			defer func() {
-				if err := res.Body.Close(); err != nil {
-					t.Errorf("failed to close response body: %v", err)
-				}
+				assert.NoError(t, res.Body.Close())
 			}()
 
-			if res.StatusCode != tt.expectedStatus {
-				t.Fatalf("expected status %d, got %d", tt.expectedStatus, res.StatusCode)
-			}
+			require.Equal(t, tt.expectedStatus, res.StatusCode)
 
 			var body api.ErrorResponse
-			if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-				t.Fatalf("failed to decode response body: %v", err)
-			}
+			require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
 
-			if body.Title != tt.expectedTitle {
-				t.Errorf("expected title %q, got %q", tt.expectedTitle, body.Title)
-			}
+			assert.Equal(t, tt.expectedTitle, body.Title)
+			assert.Equal(t, tt.expectedStatus, body.Status)
+			assert.Equal(t, tt.expectedDetail, body.Detail)
+		})
+	}
+}
 
-			if body.Status != tt.expectedStatus {
-				t.Errorf("expected body status %d, got %d", tt.expectedStatus, body.Status)
-			}
+func TestOpenAPIErrorHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		statusCode     int
+		expectedStatus int
+		expectedTitle  string
+	}{
+		{
+			name:           "uses validation middleware status",
+			statusCode:     http.StatusUnprocessableEntity,
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedTitle:  "Unprocessable Entity",
+		},
+		{
+			name:           "defaults empty status to bad request",
+			statusCode:     0,
+			expectedStatus: http.StatusBadRequest,
+			expectedTitle:  "Bad Request",
+		},
+		{
+			name:           "uses fallback title for unknown status text",
+			statusCode:     499,
+			expectedStatus: 499,
+			expectedTitle:  "Bad Request",
+		},
+	}
 
-			if body.Detail != tt.expectedDetail {
-				t.Errorf("expected detail %q, got %q", tt.expectedDetail, body.Detail)
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			expectedErr := errors.New("request does not match OpenAPI schema")
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodGet, "/spare-part/sp-001", nil)
+
+			OpenAPIErrorHandler(
+				context.Background(),
+				expectedErr,
+				w,
+				r,
+				nethttpmiddleware.ErrorHandlerOpts{StatusCode: tt.statusCode},
+			)
+
+			res := w.Result()
+			defer func() {
+				assert.NoError(t, res.Body.Close())
+			}()
+
+			require.Equal(t, tt.expectedStatus, res.StatusCode)
+			assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+
+			var body api.ErrorResponse
+			require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
+
+			assert.Equal(t, tt.expectedTitle, body.Title)
+			assert.Equal(t, tt.expectedStatus, body.Status)
+			assert.Equal(t, expectedErr.Error(), body.Detail)
 		})
 	}
 }

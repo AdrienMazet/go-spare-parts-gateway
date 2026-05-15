@@ -27,6 +27,12 @@ build:
 run-tests:
 	go test ./... -v -short -count=1
 
+.PHONY: coverage
+coverage:
+	go test ./... -coverprofile=coverage.out
+	grep -Ev '(/mock_[^/]+\.go:|/api\.gen\.go:|/main\.go:|/routes\.go:)' coverage.out > coverage.filtered.out
+	go tool cover -func=coverage.filtered.out
+
 .PHONY: lint
 lint:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValidateISO8601Duration(t *testing.T) {
@@ -87,9 +88,12 @@ func TestValidateISO8601Duration(t *testing.T) {
 
 			err := Validator.Var(tt.value, "iso8601duration")
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("validate.Var(%q) error = %v, wantErr %v", tt.value, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
 			}
+
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -160,9 +164,12 @@ func TestValidateUppercaseReference(t *testing.T) {
 
 			err := Validator.Var(tt.value, "uppercase_ref")
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("validate.Var(%q) error = %v, wantErr %v", tt.value, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
 			}
+
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -248,9 +255,12 @@ func TestValidateSparePart(t *testing.T) {
 
 			err := Validator.Struct(tt.sparePart)
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("validate.Struct(%#v) error = %v, wantErr %v", tt.sparePart, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
 			}
+
+			assert.NoError(t, err)
 		})
 	}
 }

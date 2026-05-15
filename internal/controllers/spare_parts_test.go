@@ -2,21 +2,25 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/service"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/xerrors"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSparePartHandler(t *testing.T) {
 	tests := []struct {
 		name               string
 		inputID            string
+		serviceResult      *api.SparePart
+		serviceError       error
 		expectedStatusCode int
 		expectedID         string
 		expectedError      *api.ErrorResponse
@@ -24,17 +28,46 @@ func TestSparePartHandler(t *testing.T) {
 		{
 			name:               "spare part found",
 			inputID:            "sp-001",
+			serviceResult:      getValidSparePart("sp-001"),
 			expectedStatusCode: http.StatusOK,
 			expectedID:         "sp-001",
 		},
 		{
 			name:               "spare part not found",
 			inputID:            "sp-999",
+			serviceError:       xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999"),
 			expectedStatusCode: http.StatusNotFound,
 			expectedError: &api.ErrorResponse{
 				Title:  "Not Found",
 				Status: http.StatusNotFound,
 				Detail: "spare part with id sp-999 not found",
+			},
+		},
+		{
+			name:               "unknown service error",
+			inputID:            "sp-001",
+			serviceError:       errors.New("repository unavailable"),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedError: &api.ErrorResponse{
+				Title:  "Internal Server Error",
+				Status: http.StatusInternalServerError,
+				Detail: "Internal Server Error",
+			},
+		},
+		{
+			name:    "invalid spare part returned by service",
+			inputID: "sp-001",
+			serviceResult: func() *api.SparePart {
+				sp := getValidSparePart("sp-001")
+				sp.Reference = "invalid-reference"
+
+				return sp
+			}(),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedError: &api.ErrorResponse{
+				Title:  "Internal Server Error",
+				Status: http.StatusInternalServerError,
+				Detail: "spare part with id sp-001 is invalid",
 			},
 		},
 	}
@@ -46,81 +79,56 @@ func TestSparePartHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/spare-part/"+tt.inputID, nil)
 			req.SetPathValue("id", tt.inputID)
 
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			mockController := gomock.NewController(t)
+			defer mockController.Finish()
 
-			mockService := service.NewMockSparePartsService(ctrl)
+			mockService := service.NewMockSparePartsService(mockController)
 
-			if tt.expectedID != "" {
-				validSparePart := &api.SparePart{
-					ID:          tt.inputID,
-					Reference:   "BRK-PAD-001",
-					Label:       "Front Brake Pads",
-					Brand:       "Brembo",
-					Category:    "BRAKING",
-					Description: "High performance front brake pads",
-					Offers: []api.Offer{
-						{
-							ID:            "off-001",
-							Supplier:      "PartsPro",
-							Price:         4599,
-							Currency:      "EUR",
-							StockQuantity: 42,
-							DeliveryDelay: "PT48H",
-						},
-					},
-				}
-				mockService.EXPECT().Retrieve(tt.inputID).Return(validSparePart, nil)
-			} else {
-				mockService.EXPECT().Retrieve(tt.inputID).Return(nil, xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", tt.inputID))
-			}
+			mockService.EXPECT().Retrieve(tt.inputID).Return(tt.serviceResult, tt.serviceError)
 
 			handler := NewSparePartHandler(mockService)
 			handler.GetSparePart(w, req)
 
 			res := w.Result()
 			defer func() {
-				if err := res.Body.Close(); err != nil {
-					t.Errorf("failed to close response body: %v", err)
-				}
+				assert.NoError(t, res.Body.Close())
 			}()
 
-			if res.StatusCode != tt.expectedStatusCode {
-				t.Fatalf("expected status %d, got %d", tt.expectedStatusCode, res.StatusCode)
-			}
-
-			contentType := res.Header.Get("Content-Type")
-			if !strings.HasPrefix(contentType, "application/json") {
-				t.Fatalf("expected Content-Type application/json, got %q", contentType)
-			}
+			require.Equal(t, tt.expectedStatusCode, res.StatusCode)
+			assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 
 			if tt.expectedID != "" {
 				var sp api.SparePart
-				if err := json.NewDecoder(res.Body).Decode(&sp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&sp))
 
-				if sp.ID != tt.expectedID {
-					t.Fatalf("expected ID %q, got %q", tt.expectedID, sp.ID)
-				}
+				assert.Equal(t, tt.expectedID, sp.ID)
 			} else if tt.expectedError != nil {
 				var errBody api.ErrorResponse
-				if err := json.NewDecoder(res.Body).Decode(&errBody); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&errBody))
 
-				if errBody.Title != tt.expectedError.Title {
-					t.Errorf("expected error title %q, got %q", tt.expectedError.Title, errBody.Title)
-				}
-
-				if errBody.Status != tt.expectedError.Status {
-					t.Errorf("expected error status %d, got %d", tt.expectedError.Status, errBody.Status)
-				}
-
-				if errBody.Detail != tt.expectedError.Detail {
-					t.Errorf("expected error detail %q, got %q", tt.expectedError.Detail, errBody.Detail)
-				}
+				assert.Equal(t, *tt.expectedError, errBody)
 			}
 		})
+	}
+}
+
+func getValidSparePart(id string) *api.SparePart {
+	return &api.SparePart{
+		ID:          id,
+		Reference:   "BRK-PAD-001",
+		Label:       "Front Brake Pads",
+		Brand:       "Brembo",
+		Category:    "BRAKING",
+		Description: "High performance front brake pads",
+		Offers: []api.Offer{
+			{
+				ID:            "off-001",
+				Supplier:      "PartsPro",
+				Price:         4599,
+				Currency:      "EUR",
+				StockQuantity: 42,
+				DeliveryDelay: "PT48H",
+			},
+		},
 	}
 }
