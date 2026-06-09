@@ -34,17 +34,17 @@ func (m *MockSparePartsRepo) EXPECT() *MockSparePartsRepoMockRecorder {
 	return m.recorder
 }
 
-// GetById mocks base method.
-func (m *MockSparePartsRepo) GetById(id string) (*api.SparePart, error) {
+// GetByReference mocks base method.
+func (m *MockSparePartsRepo) GetByReference(reference string) (*api.SparePart, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetById", id)
+	ret := m.ctrl.Call(m, "GetByReference", reference)
 	ret0, _ := ret[0].(*api.SparePart)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetById indicates an expected call of GetById.
-func (mr *MockSparePartsRepoMockRecorder) GetById(id interface{}) *gomock.Call {
+// GetByReference indicates an expected call of GetByReference.
+func (mr *MockSparePartsRepoMockRecorder) GetByReference(reference interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetById", reflect.TypeOf((*MockSparePartsRepo)(nil).GetById), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByReference", reflect.TypeOf((*MockSparePartsRepo)(nil).GetByReference), reference)
 }

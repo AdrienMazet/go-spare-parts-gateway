@@ -18,20 +18,20 @@ func NewSparePartHandler(sparePartsService service.SparePartsService) SpareParts
 	}
 }
 
-// GetSparePart handles GET requests to retrieve a spare part by ID.
+// GetSparePart handles GET requests to retrieve a spare part by reference.
 func (h SparePartsHandler) GetSparePart(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	reference := r.PathValue("reference")
 
-	sp, err := h.sparePartsService.Retrieve(id)
+	sp, err := h.sparePartsService.Retrieve(reference)
 	if err != nil {
-		slog.Warn("failed to retrieve spare part", "id", id, "error", err)
+		slog.Warn("failed to retrieve spare part", "reference", reference, "error", err)
 		HandleError(w, err)
 		return
 	}
 
 	if err := Validator.Struct(sp); err != nil {
-		slog.Warn("invalid spare part with id", "id", id)
-		HandleError(w, xerrors.ErrorInvalidEntity.Msgf("spare part with id %s is invalid", id))
+		slog.Warn("invalid spare part with reference", "reference", reference)
+		HandleError(w, xerrors.ErrorInvalidEntity.Msgf("spare part with reference %s is invalid", reference))
 		return
 	}
 

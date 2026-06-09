@@ -8,7 +8,7 @@ import (
 
 //go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE
 type SparePartsService interface {
-	Retrieve(ID string) (*api.SparePart, error)
+	Retrieve(reference string) (*api.SparePart, error)
 	Mapper() mapper.SparePartsMapper
 }
 
@@ -21,9 +21,9 @@ func NewSparePartsService(r repository.SparePartsRepo, m mapper.SparePartsMapper
 	return sparePartsService{r, m}
 }
 
-// Retrieve retrieves a spare part by its id
-func (s sparePartsService) Retrieve(id string) (*api.SparePart, error) {
-	sp, err := s.repository.GetById(id)
+// Retrieve retrieves a spare part by its reference.
+func (s sparePartsService) Retrieve(reference string) (*api.SparePart, error) {
+	sp, err := s.repository.GetByReference(reference)
 
 	if err != nil {
 		return nil, err

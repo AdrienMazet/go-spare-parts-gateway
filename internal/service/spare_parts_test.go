@@ -28,11 +28,11 @@ func TestSparePartsServiceRetrieve(t *testing.T) {
 	}
 
 	repo := repository.NewMockSparePartsRepo(mockController)
-	repo.EXPECT().GetById("sp-001").Return(expectedSparePart, nil)
+	repo.EXPECT().GetByReference("BRK-PAD-4521").Return(expectedSparePart, nil)
 
 	sparePartsService := NewSparePartsService(repo, nil)
 
-	sparePart, err := sparePartsService.Retrieve("sp-001")
+	sparePart, err := sparePartsService.Retrieve("BRK-PAD-4521")
 
 	require.NoError(t, err)
 	assert.Same(t, expectedSparePart, sparePart)
@@ -47,11 +47,11 @@ func TestSparePartsServiceRetrieveReturnsRepositoryError(t *testing.T) {
 	expectedErr := errors.New("repository failed")
 
 	repo := repository.NewMockSparePartsRepo(mockController)
-	repo.EXPECT().GetById("sp-999").Return(nil, expectedErr)
+	repo.EXPECT().GetByReference("UNKNOWN-REF").Return(nil, expectedErr)
 
 	sparePartsService := NewSparePartsService(repo, nil)
 
-	sparePart, err := sparePartsService.Retrieve("sp-999")
+	sparePart, err := sparePartsService.Retrieve("UNKNOWN-REF")
 
 	require.Nil(t, sparePart)
 	assert.ErrorIs(t, err, expectedErr)

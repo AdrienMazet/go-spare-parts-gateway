@@ -50,16 +50,16 @@ func (mr *MockSparePartsServiceMockRecorder) Mapper() *gomock.Call {
 }
 
 // Retrieve mocks base method.
-func (m *MockSparePartsService) Retrieve(ID string) (*api.SparePart, error) {
+func (m *MockSparePartsService) Retrieve(reference string) (*api.SparePart, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Retrieve", ID)
+	ret := m.ctrl.Call(m, "Retrieve", reference)
 	ret0, _ := ret[0].(*api.SparePart)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Retrieve indicates an expected call of Retrieve.
-func (mr *MockSparePartsServiceMockRecorder) Retrieve(ID interface{}) *gomock.Call {
+func (mr *MockSparePartsServiceMockRecorder) Retrieve(reference interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockSparePartsService)(nil).Retrieve), ID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockSparePartsService)(nil).Retrieve), reference)
 }

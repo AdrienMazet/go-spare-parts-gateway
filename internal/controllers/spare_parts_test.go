@@ -18,7 +18,7 @@ import (
 func TestSparePartHandler(t *testing.T) {
 	tests := []struct {
 		name               string
-		inputID            string
+		inputReference     string
 		serviceResult      *api.SparePart
 		serviceError       error
 		expectedStatusCode int
@@ -27,25 +27,25 @@ func TestSparePartHandler(t *testing.T) {
 	}{
 		{
 			name:               "spare part found",
-			inputID:            "sp-001",
+			inputReference:     "BRK-PAD-4521",
 			serviceResult:      getValidSparePart("sp-001"),
 			expectedStatusCode: http.StatusOK,
 			expectedID:         "sp-001",
 		},
 		{
 			name:               "spare part not found",
-			inputID:            "sp-999",
-			serviceError:       xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999"),
+			inputReference:     "UNKNOWN-REF",
+			serviceError:       xerrors.ErrorEntityNotFound.Msgf("spare part with reference %s not found", "UNKNOWN-REF"),
 			expectedStatusCode: http.StatusNotFound,
 			expectedError: &api.ErrorResponse{
 				Title:  "Not Found",
 				Status: http.StatusNotFound,
-				Detail: "spare part with id sp-999 not found",
+				Detail: "spare part with reference UNKNOWN-REF not found",
 			},
 		},
 		{
 			name:               "unknown service error",
-			inputID:            "sp-001",
+			inputReference:     "BRK-PAD-4521",
 			serviceError:       errors.New("repository unavailable"),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedError: &api.ErrorResponse{
@@ -55,8 +55,8 @@ func TestSparePartHandler(t *testing.T) {
 			},
 		},
 		{
-			name:    "invalid spare part returned by service",
-			inputID: "sp-001",
+			name:           "invalid spare part returned by service",
+			inputReference: "BRK-PAD-4521",
 			serviceResult: func() *api.SparePart {
 				sp := getValidSparePart("sp-001")
 				sp.Reference = "invalid-reference"
@@ -67,7 +67,7 @@ func TestSparePartHandler(t *testing.T) {
 			expectedError: &api.ErrorResponse{
 				Title:  "Internal Server Error",
 				Status: http.StatusInternalServerError,
-				Detail: "spare part with id sp-001 is invalid",
+				Detail: "spare part with reference BRK-PAD-4521 is invalid",
 			},
 		},
 	}
@@ -76,15 +76,15 @@ func TestSparePartHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/spare-part/"+tt.inputID, nil)
-			req.SetPathValue("id", tt.inputID)
+			req := httptest.NewRequest(http.MethodGet, "/spare-part/"+tt.inputReference, nil)
+			req.SetPathValue("reference", tt.inputReference)
 
 			mockController := gomock.NewController(t)
 			defer mockController.Finish()
 
 			mockService := service.NewMockSparePartsService(mockController)
 
-			mockService.EXPECT().Retrieve(tt.inputID).Return(tt.serviceResult, tt.serviceError)
+			mockService.EXPECT().Retrieve(tt.inputReference).Return(tt.serviceResult, tt.serviceError)
 
 			handler := NewSparePartHandler(mockService)
 			handler.GetSparePart(w, req)

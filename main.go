@@ -12,15 +12,34 @@ import (
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/config"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/controllers"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/db"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/offer"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/repository"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/service"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/service/mapper"
 )
 
 func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	if err := db.Migrate(cfg.DatabaseURL, cfg.MigrationsPath); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	database, err := db.Open(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	offerProvider := offer.NewHTTPMultiProvider(cfg.OfferProviderURLs)
 	sparePartsService := service.NewSparePartsService(
-		repository.NewSparePartsRepo(), mapper.NewSparePartsMapper())
+		repository.NewSparePartsRepo(database, offerProvider), mapper.NewSparePartsMapper())
 
 	sparePartsHandler := controllers.NewSparePartHandler(sparePartsService)
 
@@ -44,7 +63,7 @@ func main() {
 	handler := middleware(mux)
 
 	server := &http.Server{
-		Addr:              ":8080",
+		Addr:              ":" + cfg.ServerPort,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,

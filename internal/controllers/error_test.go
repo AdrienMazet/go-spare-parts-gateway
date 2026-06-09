@@ -25,24 +25,24 @@ func TestHandleError(t *testing.T) {
 	}{
 		{
 			name:           "entity not found",
-			err:            xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999"),
+			err:            xerrors.ErrorEntityNotFound.Msgf("spare part with reference %s not found", "UNKNOWN-REF"),
 			expectedStatus: http.StatusNotFound,
 			expectedTitle:  "Not Found",
-			expectedDetail: "spare part with id sp-999 not found",
+			expectedDetail: "spare part with reference UNKNOWN-REF not found",
 		},
 		{
 			name:           "wrapped entity not found",
-			err:            xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999").Wrap(errors.New("repository lookup failed")),
+			err:            xerrors.ErrorEntityNotFound.Msgf("spare part with reference %s not found", "UNKNOWN-REF").Wrap(errors.New("repository lookup failed")),
 			expectedStatus: http.StatusNotFound,
 			expectedTitle:  "Not Found",
-			expectedDetail: "spare part with id sp-999 not found",
+			expectedDetail: "spare part with reference UNKNOWN-REF not found",
 		},
 		{
 			name:           "invalid entity",
-			err:            xerrors.ErrorInvalidEntity.Msgf("spare part with id %s is invalid", "sp-001"),
+			err:            xerrors.ErrorInvalidEntity.Msgf("spare part with reference %s is invalid", "BRK-PAD-4521"),
 			expectedStatus: http.StatusInternalServerError,
 			expectedTitle:  "Internal Server Error",
-			expectedDetail: "spare part with id sp-001 is invalid",
+			expectedDetail: "spare part with reference BRK-PAD-4521 is invalid",
 		},
 		{
 			name:           "unknown error",
@@ -111,7 +111,7 @@ func TestOpenAPIErrorHandler(t *testing.T) {
 
 			expectedErr := errors.New("request does not match OpenAPI schema")
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest(http.MethodGet, "/spare-part/sp-001", nil)
+			r := httptest.NewRequest(http.MethodGet, "/spare-part/BRK-PAD-4521", nil)
 
 			OpenAPIErrorHandler(
 				context.Background(),

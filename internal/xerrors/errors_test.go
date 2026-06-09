@@ -8,15 +8,15 @@ import (
 )
 
 func TestErrorIsMatchesByKind(t *testing.T) {
-	err := ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999")
+	err := ErrorEntityNotFound.Msgf("spare part with reference %s not found", "UNKNOWN-REF")
 
 	assert.ErrorIs(t, err, ErrorEntityNotFound)
 }
 
 func TestErrorString(t *testing.T) {
-	err := ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999")
+	err := ErrorEntityNotFound.Msgf("spare part with reference %s not found", "UNKNOWN-REF")
 
-	assert.Equal(t, "ServiceError(NOT_FOUND): spare part with id sp-999 not found", err.Error())
+	assert.Equal(t, "ServiceError(NOT_FOUND): spare part with reference UNKNOWN-REF not found", err.Error())
 }
 
 func TestErrorWrapPreservesCause(t *testing.T) {
@@ -28,7 +28,7 @@ func TestErrorWrapPreservesCause(t *testing.T) {
 }
 
 func TestErrorMsgfDoesNotMutateTemplate(t *testing.T) {
-	err := ErrorEntityNotFound.Msgf("spare part with id %s not found", "sp-999")
+	err := ErrorEntityNotFound.Msgf("spare part with reference %s not found", "UNKNOWN-REF")
 
 	assert.NotEqual(t, ErrorEntityNotFound.Msg, err.Msg)
 	assert.Equal(t, "Not Found", ErrorEntityNotFound.Msg)

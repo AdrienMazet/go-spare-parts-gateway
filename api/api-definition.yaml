@@ -10,19 +10,19 @@ servers:
   - url: http://localhost:8080
 
 paths:
-  /spare-part/{id}:
+  /spare-part/{reference}:
     get:
-      operationId: getSparePartById
-      summary: Retrieve a spare part by ID
+      operationId: getSparePartByReference
+      summary: Retrieve a spare part by reference
       parameters:
-        - name: id
+        - name: reference
           in: path
           required: true
-          description: Spare part identifier
+          description: Spare part reference
           schema:
             type: string
-            pattern: "^sp-[a-zA-Z0-9-_]+$"
-            example: sp-001
+            pattern: "^[A-Z0-9][A-Z0-9-_]*$"
+            example: BRK-PAD-4521
       responses:
         "200":
           description: Spare part retrieved successfully
@@ -65,7 +65,7 @@ paths:
                   value:
                     title: Not Found
                     status: 404
-                    detail: Spare part with id sp-999 not found
+                    detail: Spare part with reference UNKNOWN-REF not found
 
         "500":
           description: Internal server error
@@ -273,6 +273,6 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
-          example: Spare part with id sp-999 not found
+          example: Spare part with reference UNKNOWN-REF not found
           x-oapi-codegen-extra-tags:
             validate: "required,min=1,max=1000"

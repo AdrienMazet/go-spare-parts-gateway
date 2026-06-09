@@ -1,7 +1,12 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
+
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/offer"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/xerrors"
 )
 
@@ -9,84 +14,55 @@ import (
 //
 //go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE
 type SparePartsRepo interface {
-	GetById(id string) (*api.SparePart, error)
+	GetByReference(reference string) (*api.SparePart, error)
 }
 
 type sparePartsRepo struct {
+	db            *sql.DB
+	offerProvider offer.Provider
 }
 
-// GetById retrieves spare part by id
-func (c sparePartsRepo) GetById(id string) (*api.SparePart, error) {
-	spareParts := getSpareParts()
+// GetByReference retrieves spare part by reference.
+func (c sparePartsRepo) GetByReference(reference string) (*api.SparePart, error) {
+	sparePart, err := c.getSparePart(reference)
+	if err != nil {
+		return nil, err
+	}
 
-	for i := range spareParts {
-		if spareParts[i].ID == id {
-			return &spareParts[i], nil
+	sparePart.Offers = c.offerProvider.GetByReference(sparePart.Reference)
+
+	return sparePart, nil
+}
+
+func (c sparePartsRepo) getSparePart(reference string) (*api.SparePart, error) {
+	row := c.db.QueryRow(`
+		SELECT id, reference, label, brand, category, description
+		FROM spare_parts
+		WHERE reference = $1
+	`, reference)
+
+	var sparePart api.SparePart
+	if err := row.Scan(
+		&sparePart.ID,
+		&sparePart.Reference,
+		&sparePart.Label,
+		&sparePart.Brand,
+		&sparePart.Category,
+		&sparePart.Description,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, xerrors.ErrorEntityNotFound.Msgf("spare part with reference %s not found", reference)
 		}
+
+		return nil, fmt.Errorf("query spare part by reference: %w", err)
 	}
 
-	return nil, xerrors.ErrorEntityNotFound.Msgf("spare part with id %s not found", id)
+	return &sparePart, nil
 }
 
-// TODO : retrieve spare parts from external data sources
-func getSpareParts() []api.SparePart {
-	return []api.SparePart{
-		{
-			ID:          "sp-001",
-			Reference:   "BRK-PAD-4521",
-			Label:       "Front Brake Pads",
-			Brand:       "Brembo",
-			Category:    api.BRAKING,
-			Description: "High performance front brake pads for urban and highway use",
-			Offers: []api.Offer{
-				{
-					ID:            "off-001",
-					Supplier:      "PartsPro",
-					Price:         4599,
-					Currency:      api.EUR,
-					StockQuantity: 42,
-					DeliveryDelay: "PT48H",
-				},
-				{
-					ID:            "off-002",
-					Supplier:      "AutoStock",
-					Price:         3999,
-					Currency:      api.EUR,
-					StockQuantity: 8,
-					DeliveryDelay: "P3D",
-				},
-			},
-		},
-		{
-			ID:          "sp-002",
-			Reference:   "ENG-FLT-7823",
-			Label:       "Oil Filter",
-			Brand:       "Mann",
-			Category:    api.FILTERS,
-			Description: "Standard oil filter compatible with most 4-cylinder engines",
-			Offers: []api.Offer{
-				{
-					ID:            "off-003",
-					Supplier:      "PartsPro",
-					Price:         899,
-					Currency:      api.EUR,
-					StockQuantity: 150,
-					DeliveryDelay: "PT2H",
-				},
-			},
-		},
-		{
-			ID:          "sp-003",
-			Reference:   "SUS-SPR-3341",
-			Label:       "Rear Coil Spring",
-			Brand:       "KYB",
-			Category:    api.SUSPENSION,
-			Description: "OEM replacement rear coil spring for medium sedans",
-			Offers:      []api.Offer{},
-		},
+func NewSparePartsRepo(db *sql.DB, offerProvider offer.Provider) SparePartsRepo {
+	return &sparePartsRepo{
+		db:            db,
+		offerProvider: offerProvider,
 	}
-}
-
-func NewSparePartsRepo() SparePartsRepo {
-	return &sparePartsRepo{}
 }

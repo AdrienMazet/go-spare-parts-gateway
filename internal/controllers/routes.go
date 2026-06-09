@@ -6,5 +6,5 @@ import (
 
 // SetupRoutes configures the API endpoints.
 func SetupRoutes(r *http.ServeMux, handler SparePartsHandler) {
-	r.HandleFunc("GET /spare-part/{id}", handler.GetSparePart)
+	r.HandleFunc("GET /spare-part/{reference}", handler.GetSparePart)
 }
