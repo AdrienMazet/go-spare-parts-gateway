@@ -43,7 +43,9 @@ func (p HTTPProvider) GetByReference(reference string) []api.Offer {
 	if err != nil {
 		return nil
 	}
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 
 	if res.StatusCode != http.StatusOK {
 		return nil

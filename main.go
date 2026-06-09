@@ -35,7 +35,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			log.Printf("Failed to close database: %v", err)
+		}
+	}()
+
+	if err := db.SeedSpareParts(database); err != nil {
+		log.Fatalf("Failed to seed spare parts: %v", err)
+	}
 
 	offerProvider := offer.NewHTTPMultiProvider(cfg.OfferProviderURLs)
 	sparePartsService := service.NewSparePartsService(

@@ -35,7 +35,14 @@ func Migrate(databaseURL, migrationsPath string) error {
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() {
+		sourceErr, databaseErr := m.Close()
+		if sourceErr != nil || databaseErr != nil {
+			// migrate.Close only releases resources; migration success should not be
+			// hidden by a close error.
+			return
+		}
+	}()
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("run migrations: %w", err)
