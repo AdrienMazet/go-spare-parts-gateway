@@ -1,7 +1,9 @@
 package offer
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
 	"github.com/adrienmazet/go-spare-parts-gateway/external/dummyprovider"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/messaging"
 )
 
 // Provider retrieves supplier offers for a spare part reference.
@@ -106,6 +109,41 @@ func (p MultiProvider) GetByReference(reference string) []api.Offer {
 	}
 
 	return aggregatedOffers
+}
+
+// PublishingProvider publishes one event for each fetched offer.
+type PublishingProvider struct {
+	provider  Provider
+	publisher messaging.OfferFetchedPublisher
+}
+
+// NewPublishingProvider creates an offer provider decorator that emits events.
+func NewPublishingProvider(provider Provider, publisher messaging.OfferFetchedPublisher) PublishingProvider {
+	return PublishingProvider{
+		provider:  provider,
+		publisher: publisher,
+	}
+}
+
+// GetByReference retrieves offers and publishes one event per offer.
+func (p PublishingProvider) GetByReference(reference string) []api.Offer {
+	offers := p.provider.GetByReference(reference)
+
+	for _, fetchedOffer := range offers {
+		event := messaging.OfferFetchedEvent{
+			Reference: reference,
+			Supplier:  fetchedOffer.Supplier,
+			Price:     fetchedOffer.Price,
+			Currency:  fetchedOffer.Currency,
+			FetchedAt: time.Now().UTC(),
+		}
+
+		if err := p.publisher.PublishOfferFetched(context.Background(), event); err != nil {
+			slog.Warn("failed to publish offer fetched event", "reference", reference, "supplier", fetchedOffer.Supplier, "error", err)
+		}
+	}
+
+	return offers
 }
 
 func toAPIOffers(providerOffers []dummyprovider.Offer) []api.Offer {

@@ -16,7 +16,7 @@ generate-mocks:
 
 .PHONY: run
 run:
-	docker-compose up -d
+	docker-compose up -d --wait
 	go run .
 
 .PHONY: build
