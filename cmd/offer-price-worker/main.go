@@ -30,17 +30,19 @@ func main() {
 
 	observability.ConfigureLogger(cfg.LogLevel)
 
-	shutdownTracer, err := observability.InitTracer(context.Background(), "offer-price-worker", cfg.OTLPEndpoint)
-	if err != nil {
-		slog.Warn("failed to initialize tracing", "error", err)
-	} else {
-		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := shutdownTracer(ctx); err != nil {
-				slog.Warn("failed to shutdown tracer", "error", err)
-			}
-		}()
+	if cfg.OTLPEndpoint != "" {
+		shutdownTracer, err := observability.InitTracer(context.Background(), "offer-price-worker", cfg.OTLPEndpoint)
+		if err != nil {
+			slog.Warn("failed to initialize tracing", "error", err)
+		} else {
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := shutdownTracer(ctx); err != nil {
+					slog.Warn("failed to shutdown tracer", "error", err)
+				}
+			}()
+		}
 	}
 
 	if err := db.Migrate(cfg.DatabaseURL, cfg.MigrationsPath); err != nil {

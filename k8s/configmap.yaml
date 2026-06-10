@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: spare-parts
+data:
+  LOG_LEVEL: "info"
+  SERVER_PORT: "8080"
+  MIGRATIONS_PATH: "/app/internal/db/migrations"
+  KAFKA_BROKERS: "kafka:29096"
+  KAFKA_OFFER_FETCHED_TOPIC: "offer-fetched"
+  KAFKA_OFFER_CONSUMER_GROUP: "offer-price-worker"
+  OFFER_PROVIDER_URLS: "http://atdistri:8081,http://globalcar:8082,http://hexapart:8083,http://partspec:8084"
+  WORKER_METRICS_PORT: "9091"

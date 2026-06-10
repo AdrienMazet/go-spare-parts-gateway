@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -31,7 +33,12 @@ func Open(databaseURL string) (*sql.DB, error) {
 
 // Migrate applies database migrations from migrationsPath.
 func Migrate(databaseURL, migrationsPath string) error {
-	m, err := migrate.New("file://"+migrationsPath, databaseURL)
+	migrationSourceURL, err := fileSourceURL(migrationsPath)
+	if err != nil {
+		return err
+	}
+
+	m, err := migrate.New(migrationSourceURL, databaseURL)
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
@@ -49,4 +56,16 @@ func Migrate(databaseURL, migrationsPath string) error {
 	}
 
 	return nil
+}
+
+func fileSourceURL(path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		absolutePath, err := filepath.Abs(path)
+		if err != nil {
+			return "", fmt.Errorf("resolve migrations path: %w", err)
+		}
+		path = absolutePath
+	}
+
+	return (&url.URL{Scheme: "file", Path: path}).String(), nil
 }

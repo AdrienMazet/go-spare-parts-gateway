@@ -15,7 +15,7 @@ type Config struct {
 	KafkaBrokers            []string `envconfig:"KAFKA_BROKERS" default:"localhost:9096"`
 	KafkaOfferFetchedTopic  string   `envconfig:"KAFKA_OFFER_FETCHED_TOPIC" default:"offer-fetched"`
 	KafkaOfferConsumerGroup string   `envconfig:"KAFKA_OFFER_CONSUMER_GROUP" default:"offer-price-worker"`
-	OTLPEndpoint            string   `envconfig:"OTEL_EXPORTER_OTLP_ENDPOINT" default:"localhost:4318"`
+	OTLPEndpoint            string   `envconfig:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 	WorkerMetricsPort       string   `envconfig:"WORKER_METRICS_PORT" default:"9091"`
 }
 

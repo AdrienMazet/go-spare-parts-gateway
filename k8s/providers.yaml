@@ -1,0 +1,266 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atdistri
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: atdistri
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: atdistri
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: atdistri
+        app.kubernetes.io/part-of: spare-parts-gateway
+    spec:
+      containers:
+        - name: provider
+          image: spare-parts-provider:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+              name: http
+          env:
+            - name: PROVIDER_NAME
+              value: atdistri
+            - name: PROVIDER_PORT
+              value: "8081"
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atdistri
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: atdistri
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: atdistri
+  ports:
+    - port: 8081
+      targetPort: http
+      name: http
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globalcar
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: globalcar
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: globalcar
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: globalcar
+        app.kubernetes.io/part-of: spare-parts-gateway
+    spec:
+      containers:
+        - name: provider
+          image: spare-parts-provider:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8082
+              name: http
+          env:
+            - name: PROVIDER_NAME
+              value: globalcar
+            - name: PROVIDER_PORT
+              value: "8082"
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: globalcar
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: globalcar
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: globalcar
+  ports:
+    - port: 8082
+      targetPort: http
+      name: http
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hexapart
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: hexapart
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hexapart
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hexapart
+        app.kubernetes.io/part-of: spare-parts-gateway
+    spec:
+      containers:
+        - name: provider
+          image: spare-parts-provider:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8083
+              name: http
+          env:
+            - name: PROVIDER_NAME
+              value: hexapart
+            - name: PROVIDER_PORT
+              value: "8083"
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hexapart
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: hexapart
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: hexapart
+  ports:
+    - port: 8083
+      targetPort: http
+      name: http
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: partspec
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: partspec
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: partspec
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: partspec
+        app.kubernetes.io/part-of: spare-parts-gateway
+    spec:
+      containers:
+        - name: provider
+          image: spare-parts-provider:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8084
+              name: http
+          env:
+            - name: PROVIDER_NAME
+              value: partspec
+            - name: PROVIDER_PORT
+              value: "8084"
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: partspec
+  namespace: spare-parts
+  labels:
+    app.kubernetes.io/name: partspec
+    app.kubernetes.io/part-of: spare-parts-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: partspec
+  ports:
+    - port: 8084
+      targetPort: http
+      name: http
+  type: ClusterIP
