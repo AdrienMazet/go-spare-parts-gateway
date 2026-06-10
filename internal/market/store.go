@@ -4,8 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/messaging"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/observability"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // Store persists offer price aggregates.
@@ -20,6 +24,16 @@ func NewStore(db *sql.DB) Store {
 
 // RecordOfferFetched updates market-like price statistics for an offer event.
 func (s Store) RecordOfferFetched(ctx context.Context, event messaging.OfferFetchedEvent) error {
+	ctx, span := observability.Tracer("market").Start(ctx, "market.record_offer_fetched")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("spare_part.reference", event.Reference),
+		attribute.String("supplier", event.Supplier),
+		attribute.Int("price", event.Price),
+		attribute.String("currency", string(event.Currency)),
+	)
+
+	startedAt := time.Now()
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO offer_price_stats (
 			reference,
@@ -48,9 +62,13 @@ func (s Store) RecordOfferFetched(ctx context.Context, event messaging.OfferFetc
 		event.FetchedAt,
 		event.Price,
 	)
+	observability.RecordDBOperation("offer_price_stats.upsert", err, time.Since(startedAt))
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("record offer fetched event: %w", err)
 	}
 
+	span.SetStatus(codes.Ok, "")
 	return nil
 }

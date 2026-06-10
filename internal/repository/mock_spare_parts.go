@@ -5,6 +5,7 @@
 package repository
 
 import (
+	context "context"
 	reflect "reflect"
 
 	api "github.com/adrienmazet/go-spare-parts-gateway/api"
@@ -35,16 +36,16 @@ func (m *MockSparePartsRepo) EXPECT() *MockSparePartsRepoMockRecorder {
 }
 
 // GetByReference mocks base method.
-func (m *MockSparePartsRepo) GetByReference(reference string) (*api.SparePart, error) {
+func (m *MockSparePartsRepo) GetByReference(ctx context.Context, reference string) (*api.SparePart, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByReference", reference)
+	ret := m.ctrl.Call(m, "GetByReference", ctx, reference)
 	ret0, _ := ret[0].(*api.SparePart)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetByReference indicates an expected call of GetByReference.
-func (mr *MockSparePartsRepoMockRecorder) GetByReference(reference interface{}) *gomock.Call {
+func (mr *MockSparePartsRepoMockRecorder) GetByReference(ctx, reference interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByReference", reflect.TypeOf((*MockSparePartsRepo)(nil).GetByReference), reference)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByReference", reflect.TypeOf((*MockSparePartsRepo)(nil).GetByReference), ctx, reference)
 }

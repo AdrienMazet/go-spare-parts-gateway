@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +15,10 @@ import (
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/db"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/market"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/messaging"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/observability"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 func main() {
@@ -25,7 +28,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	configureLogger(cfg.LogLevel)
+	observability.ConfigureLogger(cfg.LogLevel)
+
+	shutdownTracer, err := observability.InitTracer(context.Background(), "offer-price-worker", cfg.OTLPEndpoint)
+	if err != nil {
+		slog.Warn("failed to initialize tracing", "error", err)
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownTracer(ctx); err != nil {
+				slog.Warn("failed to shutdown tracer", "error", err)
+			}
+		}()
+	}
 
 	if err := db.Migrate(cfg.DatabaseURL, cfg.MigrationsPath); err != nil {
 		slog.Error("failed to run migrations", "error", err)
@@ -68,6 +84,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	metricsServer := startMetricsServer(cfg.WorkerMetricsPort)
+	defer func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := metricsServer.Shutdown(shutdownContext); err != nil {
+			slog.Warn("failed to shutdown metrics server", "error", err)
+		}
+	}()
+
 	slog.Info(
 		"offer price worker started",
 		"topic", cfg.KafkaOfferFetchedTopic,
@@ -102,14 +127,35 @@ func consume(ctx context.Context, client *kgo.Client, store market.Store) error 
 }
 
 func handleRecord(ctx context.Context, store market.Store, record *kgo.Record) error {
+	ctx, span := observability.Tracer("worker").Start(ctx, "kafka.consume.offer_fetched")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination.name", record.Topic),
+	)
+
 	var event messaging.OfferFetchedEvent
 	if err := json.Unmarshal(record.Value, &event); err != nil {
+		observability.RecordKafkaEvent("consume", record.Topic, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+	span.SetAttributes(
+		attribute.String("spare_part.reference", event.Reference),
+		attribute.String("supplier", event.Supplier),
+		attribute.Int("price", event.Price),
+		attribute.String("currency", string(event.Currency)),
+	)
 
 	if err := store.RecordOfferFetched(ctx, event); err != nil {
+		observability.RecordKafkaEvent("consume", record.Topic, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+	observability.RecordKafkaEvent("consume", record.Topic, nil)
+	span.SetStatus(codes.Ok, "")
 
 	slog.Info(
 		"offer price event processed",
@@ -122,18 +168,22 @@ func handleRecord(ctx context.Context, store market.Store, record *kgo.Record) e
 	return nil
 }
 
-func configureLogger(logLevel string) {
-	level := slog.LevelInfo
-	switch strings.ToLower(logLevel) {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn", "warning":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
+func startMetricsServer(port string) *http.Server {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", observability.MetricsHandler())
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-	})))
+	go func() {
+		slog.Info("metrics server listening", "addr", server.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("metrics server failed", "error", err)
+		}
+	}()
+
+	return server
 }

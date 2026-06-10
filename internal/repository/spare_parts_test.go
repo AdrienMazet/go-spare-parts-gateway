@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"testing"
@@ -56,7 +57,7 @@ func TestSparePartsRepoGetByReference(t *testing.T) {
 
 	repo := NewSparePartsRepo(db, fakeOfferProvider{offers: expectedOffers})
 
-	sparePart, err := repo.GetByReference("BRK-PAD-4521")
+	sparePart, err := repo.GetByReference(context.Background(), "BRK-PAD-4521")
 
 	require.NoError(t, err)
 	require.NotNil(t, sparePart)
@@ -92,7 +93,7 @@ func TestSparePartsRepoGetByReferenceNotFound(t *testing.T) {
 
 	repo := NewSparePartsRepo(db, fakeOfferProvider{})
 
-	sparePart, err := repo.GetByReference("UNKNOWN-REF")
+	sparePart, err := repo.GetByReference(context.Background(), "UNKNOWN-REF")
 
 	require.Nil(t, sparePart)
 	require.Error(t, err)
@@ -108,6 +109,6 @@ type fakeOfferProvider struct {
 	offers []api.Offer
 }
 
-func (p fakeOfferProvider) GetByReference(reference string) []api.Offer {
+func (p fakeOfferProvider) GetByReference(ctx context.Context, reference string) []api.Offer {
 	return p.offers
 }

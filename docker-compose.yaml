@@ -51,9 +51,124 @@ services:
       KAFKA_BROKERS: kafka:29096
       KAFKA_OFFER_FETCHED_TOPIC: ${KAFKA_OFFER_FETCHED_TOPIC:-offer-fetched}
       KAFKA_OFFER_CONSUMER_GROUP: ${KAFKA_OFFER_CONSUMER_GROUP:-offer-price-worker}
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+      WORKER_METRICS_PORT: 9091
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  spare-parts-api:
+    image: golang:1.26-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run .
+    environment:
+      SERVER_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      MIGRATIONS_PATH: internal/db/migrations
+      OFFER_PROVIDER_URLS: http://atdistri:8081,http://globalcar:8082,http://hexapart:8083,http://partspec:8084
+      KAFKA_BROKERS: kafka:29096
+      KAFKA_OFFER_FETCHED_TOPIC: ${KAFKA_OFFER_FETCHED_TOPIC:-offer-fetched}
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      atdistri:
+        condition: service_started
+      globalcar:
+        condition: service_started
+      hexapart:
+        condition: service_started
+      partspec:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+      - postgres
+
+  prometheus:
+    image: prom/prometheus:v3.8.0
+    ports:
+      - "9095:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  loki:
+    image: grafana/loki:3.6.3
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:3.6.3
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ./observability/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  tempo:
+    image: grafana/tempo:2.9.0
+    user: "0"
+    command: -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./observability/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/tmp/tempo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.142.0
+    command: --config=/etc/otel-collector.yml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/otel-collector.yml:/etc/otel-collector.yml:ro
+    depends_on:
+      - tempo
+
+  redpanda-console:
+    image: redpandadata/console:v3.3.1
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_BROKERS: kafka:29096
+    depends_on:
       kafka:
         condition: service_healthy
 
@@ -107,3 +222,7 @@ services:
 
 volumes:
   postgres-data:
+  grafana-data:
+  prometheus-data:
+  loki-data:
+  tempo-data:

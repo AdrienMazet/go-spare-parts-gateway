@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/observability"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // OfferFetchedEvent is emitted each time an external offer is fetched.
@@ -90,8 +93,20 @@ func EnsureTopic(ctx context.Context, client *kgo.Client, topicName string) erro
 
 // PublishOfferFetched queues an offer fetched event for asynchronous publishing.
 func (p *KafkaOfferFetchedPublisher) PublishOfferFetched(ctx context.Context, event OfferFetchedEvent) error {
+	ctx, span := observability.Tracer("messaging").Start(ctx, "kafka.publish.offer_fetched")
+	span.SetAttributes(
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination.name", p.topic),
+		attribute.String("spare_part.reference", event.Reference),
+		attribute.String("supplier", event.Supplier),
+	)
+
 	payload, err := json.Marshal(event)
 	if err != nil {
+		observability.RecordKafkaEvent("publish", p.topic, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		span.End()
 		return fmt.Errorf("marshal offer fetched event: %w", err)
 	}
 
@@ -101,8 +116,13 @@ func (p *KafkaOfferFetchedPublisher) PublishOfferFetched(ctx context.Context, ev
 		Value: payload,
 	}
 
-	p.client.Produce(ctx, record, func(_ *kgo.Record, err error) {
+	p.client.Produce(context.WithoutCancel(ctx), record, func(_ *kgo.Record, err error) {
+		defer span.End()
+		observability.RecordKafkaEvent("publish", p.topic, err)
+
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			slog.Warn(
 				"failed to publish offer fetched event",
 				"reference", event.Reference,
@@ -112,6 +132,7 @@ func (p *KafkaOfferFetchedPublisher) PublishOfferFetched(ctx context.Context, ev
 			return
 		}
 
+		span.SetStatus(codes.Ok, "")
 		slog.Debug(
 			"offer fetched event published",
 			"reference", event.Reference,

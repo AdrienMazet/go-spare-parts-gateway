@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: spare-parts-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - spare-parts-api:8080
+
+  - job_name: offer-price-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - offer-price-worker:9091

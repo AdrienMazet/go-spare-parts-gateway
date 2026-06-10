@@ -22,7 +22,7 @@ func NewSparePartHandler(sparePartsService service.SparePartsService) SpareParts
 func (h SparePartsHandler) GetSparePart(w http.ResponseWriter, r *http.Request) {
 	reference := r.PathValue("reference")
 
-	sp, err := h.sparePartsService.Retrieve(reference)
+	sp, err := h.sparePartsService.Retrieve(r.Context(), reference)
 	if err != nil {
 		slog.Warn("failed to retrieve spare part", "reference", reference, "error", err)
 		HandleError(w, err)

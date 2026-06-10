@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/controllers"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/db"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/messaging"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/observability"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/offer"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/repository"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/service"
@@ -31,8 +31,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	configureLogger(cfg.LogLevel)
+	observability.ConfigureLogger(cfg.LogLevel)
 	slog.Info("starting spare parts gateway", "port", cfg.ServerPort, "offer_provider_count", len(cfg.OfferProviderURLs))
+
+	shutdownTracer, err := observability.InitTracer(context.Background(), "spare-parts-api", cfg.OTLPEndpoint)
+	if err != nil {
+		slog.Warn("failed to initialize tracing", "error", err)
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownTracer(ctx); err != nil {
+				slog.Warn("failed to shutdown tracer", "error", err)
+			}
+		}()
+	}
 
 	if err := db.Migrate(cfg.DatabaseURL, cfg.MigrationsPath); err != nil {
 		slog.Error("failed to run migrations", "error", err)
@@ -106,7 +119,13 @@ func main() {
 		},
 	)
 
-	handler := controllers.LogRequests(middleware(mux))
+	apiHandler := observability.InstrumentHTTPHandler(middleware(mux), "api.http")
+
+	rootMux := http.NewServeMux()
+	rootMux.Handle("/metrics", observability.MetricsHandler())
+	rootMux.Handle("/", apiHandler)
+
+	handler := observability.HTTPMiddleware(controllers.LogRequests(rootMux))
 
 	server := &http.Server{
 		Addr:              ":" + cfg.ServerPort,
@@ -145,20 +164,4 @@ func main() {
 		}
 		slog.Info("server shutdown complete")
 	}
-}
-
-func configureLogger(logLevel string) {
-	level := slog.LevelInfo
-	switch strings.ToLower(logLevel) {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn", "warning":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	}
-
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-	})))
 }

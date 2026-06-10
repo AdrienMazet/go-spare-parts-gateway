@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -28,11 +29,11 @@ func TestSparePartsServiceRetrieve(t *testing.T) {
 	}
 
 	repo := repository.NewMockSparePartsRepo(mockController)
-	repo.EXPECT().GetByReference("BRK-PAD-4521").Return(expectedSparePart, nil)
+	repo.EXPECT().GetByReference(gomock.Any(), "BRK-PAD-4521").Return(expectedSparePart, nil)
 
 	sparePartsService := NewSparePartsService(repo, nil)
 
-	sparePart, err := sparePartsService.Retrieve("BRK-PAD-4521")
+	sparePart, err := sparePartsService.Retrieve(context.Background(), "BRK-PAD-4521")
 
 	require.NoError(t, err)
 	assert.Same(t, expectedSparePart, sparePart)
@@ -47,11 +48,11 @@ func TestSparePartsServiceRetrieveReturnsRepositoryError(t *testing.T) {
 	expectedErr := errors.New("repository failed")
 
 	repo := repository.NewMockSparePartsRepo(mockController)
-	repo.EXPECT().GetByReference("UNKNOWN-REF").Return(nil, expectedErr)
+	repo.EXPECT().GetByReference(gomock.Any(), "UNKNOWN-REF").Return(nil, expectedErr)
 
 	sparePartsService := NewSparePartsService(repo, nil)
 
-	sparePart, err := sparePartsService.Retrieve("UNKNOWN-REF")
+	sparePart, err := sparePartsService.Retrieve(context.Background(), "UNKNOWN-REF")
 
 	require.Nil(t, sparePart)
 	assert.ErrorIs(t, err, expectedErr)

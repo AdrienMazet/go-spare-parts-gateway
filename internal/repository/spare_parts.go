@@ -1,20 +1,25 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
+	"github.com/adrienmazet/go-spare-parts-gateway/internal/observability"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/offer"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/xerrors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // SparePartsRepo provides necessary methods to store and retrieve spare parts
 //
 //go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE
 type SparePartsRepo interface {
-	GetByReference(reference string) (*api.SparePart, error)
+	GetByReference(ctx context.Context, reference string) (*api.SparePart, error)
 }
 
 type sparePartsRepo struct {
@@ -23,19 +28,24 @@ type sparePartsRepo struct {
 }
 
 // GetByReference retrieves spare part by reference.
-func (c sparePartsRepo) GetByReference(reference string) (*api.SparePart, error) {
-	sparePart, err := c.getSparePart(reference)
+func (c sparePartsRepo) GetByReference(ctx context.Context, reference string) (*api.SparePart, error) {
+	sparePart, err := c.getSparePart(ctx, reference)
 	if err != nil {
 		return nil, err
 	}
 
-	sparePart.Offers = c.offerProvider.GetByReference(sparePart.Reference)
+	sparePart.Offers = c.offerProvider.GetByReference(ctx, sparePart.Reference)
 
 	return sparePart, nil
 }
 
-func (c sparePartsRepo) getSparePart(reference string) (*api.SparePart, error) {
-	row := c.db.QueryRow(`
+func (c sparePartsRepo) getSparePart(ctx context.Context, reference string) (*api.SparePart, error) {
+	ctx, span := observability.Tracer("repository").Start(ctx, "repository.get_spare_part")
+	defer span.End()
+	span.SetAttributes(attribute.String("spare_part.reference", reference))
+
+	startedAt := time.Now()
+	row := c.db.QueryRowContext(ctx, `
 		SELECT id, reference, label, brand, category, description
 		FROM spare_parts
 		WHERE reference = $1
@@ -50,6 +60,10 @@ func (c sparePartsRepo) getSparePart(reference string) (*api.SparePart, error) {
 		&sparePart.Category,
 		&sparePart.Description,
 	); err != nil {
+		observability.RecordDBOperation("spare_parts.select_by_reference", err, time.Since(startedAt))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, xerrors.ErrorEntityNotFound.Msgf("spare part with reference %s not found", reference)
 		}
@@ -57,6 +71,7 @@ func (c sparePartsRepo) getSparePart(reference string) (*api.SparePart, error) {
 		return nil, fmt.Errorf("query spare part by reference: %w", err)
 	}
 
+	observability.RecordDBOperation("spare_parts.select_by_reference", nil, time.Since(startedAt))
 	return &sparePart, nil
 }
 

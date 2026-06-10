@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/adrienmazet/go-spare-parts-gateway/api"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/repository"
 	"github.com/adrienmazet/go-spare-parts-gateway/internal/service/mapper"
@@ -8,7 +10,7 @@ import (
 
 //go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE
 type SparePartsService interface {
-	Retrieve(reference string) (*api.SparePart, error)
+	Retrieve(ctx context.Context, reference string) (*api.SparePart, error)
 	Mapper() mapper.SparePartsMapper
 }
 
@@ -22,8 +24,8 @@ func NewSparePartsService(r repository.SparePartsRepo, m mapper.SparePartsMapper
 }
 
 // Retrieve retrieves a spare part by its reference.
-func (s sparePartsService) Retrieve(reference string) (*api.SparePart, error) {
-	sp, err := s.repository.GetByReference(reference)
+func (s sparePartsService) Retrieve(ctx context.Context, reference string) (*api.SparePart, error) {
+	sp, err := s.repository.GetByReference(ctx, reference)
 
 	if err != nil {
 		return nil, err

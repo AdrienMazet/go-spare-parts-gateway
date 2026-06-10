@@ -5,6 +5,7 @@
 package service
 
 import (
+	context "context"
 	reflect "reflect"
 
 	api "github.com/adrienmazet/go-spare-parts-gateway/api"
@@ -50,16 +51,16 @@ func (mr *MockSparePartsServiceMockRecorder) Mapper() *gomock.Call {
 }
 
 // Retrieve mocks base method.
-func (m *MockSparePartsService) Retrieve(reference string) (*api.SparePart, error) {
+func (m *MockSparePartsService) Retrieve(ctx context.Context, reference string) (*api.SparePart, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Retrieve", reference)
+	ret := m.ctrl.Call(m, "Retrieve", ctx, reference)
 	ret0, _ := ret[0].(*api.SparePart)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Retrieve indicates an expected call of Retrieve.
-func (mr *MockSparePartsServiceMockRecorder) Retrieve(reference interface{}) *gomock.Call {
+func (mr *MockSparePartsServiceMockRecorder) Retrieve(ctx, reference interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockSparePartsService)(nil).Retrieve), reference)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockSparePartsService)(nil).Retrieve), ctx, reference)
 }

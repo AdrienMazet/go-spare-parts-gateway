@@ -17,6 +17,10 @@ generate-mocks:
 .PHONY: run
 run:
 	docker-compose up -d --wait
+
+.PHONY: run-local
+run-local:
+	docker-compose up -d --wait postgres kafka atdistri globalcar hexapart partspec otel-collector
 	go run .
 
 .PHONY: build

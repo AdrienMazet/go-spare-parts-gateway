@@ -84,7 +84,7 @@ func TestSparePartHandler(t *testing.T) {
 
 			mockService := service.NewMockSparePartsService(mockController)
 
-			mockService.EXPECT().Retrieve(tt.inputReference).Return(tt.serviceResult, tt.serviceError)
+			mockService.EXPECT().Retrieve(gomock.Any(), tt.inputReference).Return(tt.serviceResult, tt.serviceError)
 
 			handler := NewSparePartHandler(mockService)
 			handler.GetSparePart(w, req)

@@ -30,7 +30,7 @@ func TestPublishingProviderPublishesOneEventPerOffer(t *testing.T) {
 	publisher := &fakeOfferFetchedPublisher{}
 	provider := NewPublishingProvider(fakeProvider{offers: offers}, publisher)
 
-	actualOffers := provider.GetByReference("BRK-PAD-4521")
+	actualOffers := provider.GetByReference(context.Background(), "BRK-PAD-4521")
 
 	assert.Equal(t, offers, actualOffers)
 	assert.Len(t, publisher.events, 2)
@@ -54,7 +54,7 @@ func TestPublishingProviderKeepsOffersWhenPublishFails(t *testing.T) {
 	publisher := &fakeOfferFetchedPublisher{err: errors.New("kafka unavailable")}
 	provider := NewPublishingProvider(fakeProvider{offers: offers}, publisher)
 
-	actualOffers := provider.GetByReference("BRK-PAD-4521")
+	actualOffers := provider.GetByReference(context.Background(), "BRK-PAD-4521")
 
 	assert.Equal(t, offers, actualOffers)
 	assert.Len(t, publisher.events, 1)
@@ -64,7 +64,7 @@ type fakeProvider struct {
 	offers []api.Offer
 }
 
-func (p fakeProvider) GetByReference(reference string) []api.Offer {
+func (p fakeProvider) GetByReference(ctx context.Context, reference string) []api.Offer {
 	return p.offers
 }
 
