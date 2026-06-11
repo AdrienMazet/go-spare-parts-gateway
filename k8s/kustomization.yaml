@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - metrics-server.yaml
   - secret.yaml
   - configmap.yaml
   - postgres.yaml
@@ -10,4 +11,5 @@ resources:
   - providers.yaml
   - spare-parts-api.yaml
   - offer-price-worker.yaml
+  - hpa.yaml
   - ingress.yaml

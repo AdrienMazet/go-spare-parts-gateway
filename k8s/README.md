@@ -42,4 +42,30 @@ If you have an nginx ingress controller locally:
 curl http://spare-parts.localhost/spare-part/BRK-PAD-4521
 ```
 
+Watch autoscaling:
+
+```sh
+make k8s-watch-scale
+```
+
+To watch API pods in another terminal:
+
+```sh
+kubectl get pods -n spare-parts -l app.kubernetes.io/name=spare-parts-api -w
+```
+
+Run a k6 load test in another terminal:
+
+```sh
+make k8s-port-forward
+make load-spare-part
+```
+
+If `k6` is not installed locally:
+
+```sh
+make k8s-port-forward
+make load-spare-part-docker
+```
+
 For a later AWS deployment, Postgres and Kafka should normally move out of these manifests and become managed services or Helm dependencies. The application manifests can then become Helm templates and Terraform can provision the cluster, ingress controller, managed database, and Kafka service.

@@ -5,6 +5,8 @@ init-env:
 OAPI_CODEGEN_VERSION := v2.5.0
 OAPI_CODEGEN := go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION)
 K8S_NODE ?= desktop-control-plane
+K6_BASE_URL ?= http://localhost:18080
+K6_DOCKER_BASE_URL ?= http://host.docker.internal:18080
 
 .PHONY: generate-api-models
 generate-api-models:
@@ -67,9 +69,25 @@ k8s-reset:
 k8s-status:
 	kubectl get all,ingress,pvc -n spare-parts
 
+.PHONY: k8s-watch-scale
+k8s-watch-scale:
+	kubectl get hpa -n spare-parts -w
+
+.PHONY: k8s-port-forward
+k8s-port-forward:
+	kubectl port-forward --address 0.0.0.0 -n spare-parts svc/spare-parts-api 18080:8080
+
 .PHONY: k8s-logs-api
 k8s-logs-api:
 	kubectl logs -n spare-parts deploy/spare-parts-api -f
+
+.PHONY: load-spare-part
+load-spare-part:
+	BASE_URL=$(K6_BASE_URL) k6 run load-tests/spare-part.js
+
+.PHONY: load-spare-part-docker
+load-spare-part-docker:
+	docker run --rm -e BASE_URL=$(K6_DOCKER_BASE_URL) -v $(CURDIR)/load-tests:/scripts grafana/k6:latest run /scripts/spare-part.js
 
 .PHONY: run-tests
 run-tests:
